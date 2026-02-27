@@ -1,0 +1,136 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Voice Assistant</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            background: linear-gradient(135deg, #4e73df, #1cc88a);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            margin: 0;
+        }
+
+        .container {
+            background: white;
+            width: 420px;
+            padding: 25px;
+            border-radius: 15px;
+            box-shadow: 0 8px 20px rgba(0,0,0,0.2);
+            text-align: center;
+        }
+
+        h1 {
+            margin-bottom: 10px;
+            color: #333;
+        }
+
+        #status {
+            font-size: 14px;
+            margin-bottom: 15px;
+            color: #666;
+        }
+
+        #output {
+            min-height: 80px;
+            background: #f8f9fc;
+            padding: 10px;
+            border-radius: 8px;
+            margin-bottom: 15px;
+            font-size: 14px;
+            text-align: left;
+        }
+
+        button {
+            padding: 10px 20px;
+            border: none;
+            border-radius: 25px;
+            background: #4e73df;
+            color: white;
+            cursor: pointer;
+            font-size: 14px;
+        }
+
+        button:hover {
+            background: #2e59d9;
+        }
+    </style>
+</head>
+
+<body>
+
+<div class="container">
+    <h1>🎤 My Voice Assistant</h1>
+    <p id="status">Click the button and speak</p>
+    <div id="output"></div>
+    <button id="startBtn">Start Listening</button>
+</div>
+
+<script>
+    const statusText = document.getElementById("status");
+    const outputDiv = document.getElementById("output");
+    const startBtn = document.getElementById("startBtn");
+
+    const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+
+    if (!SpeechRecognition) {
+        alert("Speech Recognition not supported in this browser. Use Chrome.");
+    }
+
+    const recognition = new SpeechRecognition();
+    recognition.lang = "en-IN";
+    recognition.continuous = false;
+    recognition.interimResults = false;
+
+    startBtn.addEventListener("click", () => {
+        statusText.textContent = "Listening...";
+        recognition.start();
+    });
+
+    recognition.onresult = function(event) {
+        const command = event.results[0][0].transcript;
+        statusText.textContent = "Processing...";
+        recognition.stop();
+
+        fetch("/process", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ command: command })
+        })
+        .then(res => res.json())
+        .then(data => {
+            outputDiv.innerHTML = `
+                <p><strong>You:</strong> ${command}</p>
+                <p><strong>Assistant:</strong> ${data.response}</p>
+            `;
+
+            statusText.textContent = "Ready";
+
+            const speech = new SpeechSynthesisUtterance(data.response);
+            speech.lang = "en-IN";
+            window.speechSynthesis.speak(speech);
+        })
+        .catch(err => {
+            statusText.textContent = "Server error.";
+            console.error(err);
+        });
+    };
+
+    recognition.onerror = function(event) {
+        statusText.textContent = "Mic Error: " + event.error;
+    };
+
+    recognition.onend = function() {
+        if (statusText.textContent === "Listening...") {
+            statusText.textContent = "No speech detected.";
+        }
+    };
+</script>
+
+</body>
+</html>
